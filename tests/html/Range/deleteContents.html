@@ -1,0 +1,206 @@
+<!doctype html>
+<html>
+<head>
+<title>Range#deleteContents</title>
+<script>
+  (window.customElements = window.customElements || {}).forcePolyfill = true;
+</script>
+<script src="../../../node_modules/es6-promise/dist/es6-promise.auto.min.js"></script>
+<script src="../../../node_modules/wct-browser-legacy/browser.js"></script>
+<script src="../../../custom-elements.min.js"></script>
+<script>
+  function generateLocalName() {
+    return 'test-element-' + Math.random().toString(32).substring(2);
+  }
+
+  function defineWithLocalName(localName) {
+    customElements.define(localName, class extends HTMLElement {
+      constructor() {
+        super();
+        this.constructed = true;
+        this.connectedCallbackCount = 0;
+        this.disconnectedCallbackCount = 0;
+      }
+
+      connectedCallback() {
+        this.connectedCallbackCount++;
+      }
+
+      disconnectedCallback() {
+        this.disconnectedCallbackCount++;
+      }
+    });
+  }
+
+  test('Deleting a connected customized element calls `disconnectedCallback`.',
+    function() {
+      const localName = generateLocalName();
+      defineWithLocalName(localName);
+
+      const element = document.createElement(localName);
+      assert(element.constructed);
+
+      document.body.appendChild(element);
+
+      assert.equal(element.connectedCallbackCount, 1);
+      assert.equal(element.disconnectedCallbackCount, 0);
+
+      const range = document.createRange();
+      range.selectNode(element);
+      range.deleteContents();
+
+      assert.equal(element.connectedCallbackCount, 1);
+      assert.equal(element.disconnectedCallbackCount, 1);
+    });
+
+  test('Deleting a disconnected customized element does nothing.', function() {
+    const localName = generateLocalName();
+    defineWithLocalName(localName);
+
+    const disconnectedParent = document.createElement('div');
+    const element = document.createElement(localName);
+
+    disconnectedParent.appendChild(element);
+
+    assert.equal(element.connectedCallbackCount, 0);
+    assert.equal(element.disconnectedCallbackCount, 0);
+
+    const range = document.createRange();
+    range.selectNode(element);
+    range.deleteContents();
+
+    assert.equal(element.connectedCallbackCount, 0);
+    assert.equal(element.disconnectedCallbackCount, 0);
+  });
+
+  test('Deleting part of a connected customized element from the start of the range does nothing.',
+    function() {
+      const localName = generateLocalName();
+      defineWithLocalName(localName);
+
+      const element1 = document.createElement(localName);
+      assert(element1.constructed);
+      element1.textContent = 'foo';
+      const element2 = document.createElement(localName);
+      assert(element2.constructed);
+      element1.appendChild(element2);
+
+      const connectedParent = document.createElement('div');
+      connectedParent.appendChild(element1);
+      const endNode = document.createElement('span');
+      endNode.textContent = 'bar';
+      connectedParent.appendChild(endNode);
+
+      document.body.appendChild(connectedParent);
+
+      assert.equal(element1.connectedCallbackCount, 1);
+      assert.equal(element1.disconnectedCallbackCount, 0);
+      assert.equal(element2.connectedCallbackCount, 1);
+      assert.equal(element2.disconnectedCallbackCount, 0);
+
+      const range = document.createRange();
+      range.selectNode(element2);
+      range.setEndAfter(endNode);
+      range.deleteContents();
+
+      // The split node isn't removed.
+      assert.equal(element1.connectedCallbackCount, 1);
+      assert.equal(element1.disconnectedCallbackCount, 0);
+      // But it's child is.
+      assert.equal(element2.connectedCallbackCount, 1);
+      assert.equal(element2.disconnectedCallbackCount, 1);
+    });
+  
+  test('Deleting part of a connected customized element from the end of the range does nothing.',
+    function() {
+      const localName = generateLocalName();
+      defineWithLocalName(localName);
+
+      const element1 = document.createElement(localName);
+      assert(element1.constructed);
+      const element2 = document.createElement(localName);
+      assert(element2.constructed);
+      element1.appendChild(element2);
+      element1.appendChild(document.createTextNode('bar'));
+
+      const connectedParent = document.createElement('div');
+      const startNode = document.createElement('span');
+      startNode.textContent = 'foo';
+      connectedParent.appendChild(startNode);
+      connectedParent.appendChild(element1);
+
+      document.body.appendChild(connectedParent);
+
+      assert.equal(element1.connectedCallbackCount, 1);
+      assert.equal(element1.disconnectedCallbackCount, 0);
+      assert.equal(element2.connectedCallbackCount, 1);
+      assert.equal(element2.disconnectedCallbackCount, 0);
+
+      const range = document.createRange();
+      range.selectNode(startNode);
+      range.setEndAfter(element2);
+      range.deleteContents();
+
+      // The split node isn't removed.
+      assert.equal(element1.connectedCallbackCount, 1);
+      assert.equal(element1.disconnectedCallbackCount, 0);
+      // But it's child is.
+      assert.equal(element2.connectedCallbackCount, 1);
+      assert.equal(element2.disconnectedCallbackCount, 1);
+    });
+  
+      
+  test('Deleting part of a connected customized element from both ends of the range.',
+    function() {
+      const localName = generateLocalName();
+      defineWithLocalName(localName);
+
+      const startPartial = document.createElement(localName);
+      assert(startPartial.constructed);
+      startPartial.textContent = 'foo';
+      const startChild = document.createElement(localName);
+      assert(startChild.constructed);
+      startPartial.appendChild(startChild);
+
+      const endPartial = document.createElement(localName);
+      assert(endPartial.constructed);
+      const endChild = document.createElement(localName);
+      assert(endChild.constructed);
+      endPartial.appendChild(endChild);
+      endPartial.appendChild(document.createTextNode('bar'));
+
+      const connectedParent = document.createElement('div');
+      connectedParent.appendChild(startPartial);
+      connectedParent.appendChild(endPartial);
+
+      document.body.appendChild(connectedParent);
+
+      assert.equal(startPartial.connectedCallbackCount, 1);
+      assert.equal(startPartial.disconnectedCallbackCount, 0);
+      assert.equal(startChild.connectedCallbackCount, 1);
+      assert.equal(startChild.disconnectedCallbackCount, 0);
+      assert.equal(endPartial.connectedCallbackCount, 1);
+      assert.equal(endPartial.disconnectedCallbackCount, 0);
+      assert.equal(endChild.connectedCallbackCount, 1);
+      assert.equal(endChild.disconnectedCallbackCount, 0);
+
+      const range = document.createRange();
+      range.selectNode(startChild);
+      range.setEndAfter(endChild);
+      range.deleteContents();
+
+      // The split nodes are not removed.
+      assert.equal(startPartial.connectedCallbackCount, 1);
+      assert.equal(startPartial.disconnectedCallbackCount, 0);
+      assert.equal(endPartial.connectedCallbackCount, 1);
+      assert.equal(endPartial.disconnectedCallbackCount, 0);
+      // But it's child is.
+      assert.equal(startChild.connectedCallbackCount, 1);
+      assert.equal(startChild.disconnectedCallbackCount, 1);
+      assert.equal(endChild.connectedCallbackCount, 1);
+      assert.equal(endChild.disconnectedCallbackCount, 1);
+    });
+</script>
+</head>
+<body></body>
+</html>

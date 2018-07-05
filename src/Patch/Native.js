@@ -32,4 +32,10 @@ export default {
   HTMLElement_innerHTML: Object.getOwnPropertyDescriptor(window.HTMLElement.prototype, 'innerHTML'),
   HTMLElement_insertAdjacentElement: window.HTMLElement.prototype['insertAdjacentElement'],
   HTMLElement_insertAdjacentHTML: window.HTMLElement.prototype['insertAdjacentHTML'],
+  Range_cloneContents: window.Range.prototype['cloneContents'],
+  Range_createContextualFragment: window.Range.prototype['createContextualFragment'],
+  Range_deleteContents: window.Range.prototype['deleteContents'],
+  Range_extractContents: window.Range.prototype['extractContents'],
+  Range_insertNode: window.Range.prototype['insertNode'],
+  Range_surroundContents: window.Range.prototype['surroundContents'],
 };

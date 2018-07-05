@@ -1,0 +1,329 @@
+<!doctype html>
+<html>
+<head>
+<title>Range#surroundContents</title>
+<script>
+  (window.customElements = window.customElements || {}).forcePolyfill = true;
+</script>
+<script src="../../../node_modules/es6-promise/dist/es6-promise.auto.min.js"></script>
+<script src="../../../node_modules/wct-browser-legacy/browser.js"></script>
+<script src="../../../custom-elements.min.js"></script>
+<script>
+  function generateLocalName() {
+    return 'test-element-' + Math.random().toString(32).substring(2);
+  }
+
+  function defineWithLocalName(localName) {
+    customElements.define(localName, class extends HTMLElement {
+      constructor() {
+        super();
+        this.constructed = true;
+        this.connectedCallbackCount = 0;
+        this.disconnectedCallbackCount = 0;
+      }
+
+      connectedCallback() {
+        this.connectedCallbackCount++;
+      }
+
+      disconnectedCallback() {
+        this.disconnectedCallbackCount++;
+      }
+    });
+  }
+
+  suite('Surrounding a connected Node.', function() {
+    let connectedNode;
+
+    setup(function() {
+      connectedNode = document.createElement('div');
+      connectedNode.appendChild(document.createElement('span'));
+      document.body.appendChild(connectedNode);
+    });
+
+    teardown(function() {
+      document.body.removeChild(connectedNode);
+    });
+
+    test('Surrounding with an uncustomized element with a definition upgrades the ' +
+      'element and calls `connectedCallback`.', function() {
+        const localName = generateLocalName();
+        const element = document.createElement(localName);
+        // Define after creating to prevent upgrade.
+        defineWithLocalName(localName);
+
+        assert(!element.constructed);
+
+        const originalElement = connectedNode.firstElementChild;
+
+        const range = document.createRange();
+        range.selectNode(originalElement);
+        range.surroundContents(element);
+
+        assert(element.constructed);
+        assert.equal(element.connectedCallbackCount, 1);
+        assert.equal(element.disconnectedCallbackCount, 0);
+        assert.equal(originalElement.parentNode, element);
+      });
+
+    test('Surrounding with a disconnected customized element calls `connectedCallback`.',
+      function() {
+        const localName = generateLocalName();
+        // Define before creating to cause the element to be constructed.
+        defineWithLocalName(localName);
+        const element = document.createElement(localName);
+
+        assert(element.constructed);
+        assert.equal(element.connectedCallbackCount, 0);
+        assert.equal(element.disconnectedCallbackCount, 0);
+
+        const originalElement = connectedNode.firstElementChild;
+        const range = document.createRange();
+        range.selectNode(originalElement);
+        range.surroundContents(element);
+
+        assert.equal(element.connectedCallbackCount, 1);
+        assert.equal(element.disconnectedCallbackCount, 0);
+        assert.equal(originalElement.parentNode, element);
+      });
+
+    test('Surrounding with a connected customized element calls `disconnectedCallback` ' +
+      'and `connectedCallback`.', function() {
+        const localName = generateLocalName();
+        // Define before creating to cause the element to be constructed.
+        defineWithLocalName(localName);
+        const element = document.createElement(localName);
+
+        assert(element.constructed);
+        assert.equal(element.connectedCallbackCount, 0);
+        assert.equal(element.disconnectedCallbackCount, 0);
+
+        connectedNode.appendChild(element);
+
+        assert.equal(element.connectedCallbackCount, 1);
+        assert.equal(element.disconnectedCallbackCount, 0);
+
+        const hr = connectedNode.appendChild(document.createElement('hr'));
+
+        const range = document.createRange();
+        range.selectNode(hr);
+        range.surroundContents(element);
+
+        assert.equal(element.connectedCallbackCount, 2);
+        assert.equal(element.disconnectedCallbackCount, 1);
+        assert.equal(hr.parentNode, element);
+      });
+
+    
+    test('Surrounding a connected customized element calls `disconnectedCallback` ' +
+      'and `connectedCallback`.', function() {
+        const localName = generateLocalName();
+        // Define before creating to cause the element to be constructed.
+        defineWithLocalName(localName);
+        const element = document.createElement(localName);
+        connectedNode.appendChild(element);
+
+        assert(element.constructed);
+        assert.equal(element.connectedCallbackCount, 1);
+        assert.equal(element.disconnectedCallbackCount, 0);
+
+        const newParent = document.createElement('div');
+        const range = document.createRange();
+        range.selectNode(element);
+        range.surroundContents(newParent);
+
+        assert.equal(element.connectedCallbackCount, 2);
+        assert.equal(element.disconnectedCallbackCount, 1);
+        assert.equal(element.parentNode, newParent);
+      });
+  });
+
+  suite('Surrounding a disconnected Node.', function() {
+    let connectedNode;
+    let disconnectedNode;
+
+    setup(function() {
+      connectedNode = document.createElement('div');
+      document.body.appendChild(connectedNode);
+      disconnectedNode = document.createElement('div');
+      document.createElement('div').appendChild(disconnectedNode);
+    });
+
+    teardown(function() {
+      document.body.removeChild(connectedNode);
+    });
+
+    test('Surrounding with an uncustomized element with a definition does nothing.',
+      function() {
+        const localName = generateLocalName();
+        const element = document.createElement(localName);
+        // Define after creating to prevent upgrade.
+        defineWithLocalName(localName);
+
+        assert(!element.constructed);
+
+        const range = document.createRange();
+        range.selectNode(disconnectedNode);
+        range.surroundContents(element);
+        assert.equal(disconnectedNode.parentNode, element);
+        assert(!element.constructed);
+      });
+
+    test('Surrounding with a disconnected customized element does nothing.', function() {
+      const localName = generateLocalName();
+      // Define before creating to cause the element to be constructed.
+      defineWithLocalName(localName);
+      const element = document.createElement(localName);
+
+      assert(element.constructed);
+      assert.equal(element.connectedCallbackCount, 0);
+      assert.equal(element.disconnectedCallbackCount, 0);
+
+      const range = document.createRange();
+      range.selectNode(disconnectedNode);
+      range.surroundContents(element);
+
+      assert.equal(element.connectedCallbackCount, 0);
+      assert.equal(element.disconnectedCallbackCount, 0);
+      assert.equal(disconnectedNode.parentNode, element);
+    });
+
+    test('Surrounding with a connected customized element calls `disconnectedCallback`.',
+      function() {
+        const localName = generateLocalName();
+        // Define before creating to cause the element to be constructed.
+        defineWithLocalName(localName);
+        const element = document.createElement(localName);
+
+        assert(element.constructed);
+        assert.equal(element.connectedCallbackCount, 0);
+        assert.equal(element.disconnectedCallbackCount, 0);
+
+        connectedNode.appendChild(element);
+
+        assert.equal(element.connectedCallbackCount, 1);
+        assert.equal(element.disconnectedCallbackCount, 0);
+
+        const range = document.createRange();
+        range.selectNode(disconnectedNode);
+        range.surroundContents(element);
+
+        assert.equal(element.connectedCallbackCount, 1);
+        assert.equal(element.disconnectedCallbackCount, 1);
+        assert.equal(disconnectedNode.parentNode, element);
+      });
+    
+    test('Surrounding a disconnected customized element does nothing.', function() {
+      const localName = generateLocalName();
+      // Define before creating to cause the element to be constructed.
+      defineWithLocalName(localName);
+      const element = document.createElement(localName);
+      disconnectedNode.appendChild(element);
+
+      assert(element.constructed);
+      assert.equal(element.connectedCallbackCount, 0);
+      assert.equal(element.disconnectedCallbackCount, 0);
+
+      const newParent = document.createElement('div');
+      const range = document.createRange();
+      range.selectNode(disconnectedNode);
+      range.surroundContents(newParent);
+
+      assert.equal(element.connectedCallbackCount, 0);
+      assert.equal(element.disconnectedCallbackCount, 0);
+      assert.equal(disconnectedNode.parentNode, newParent);
+    });
+  });
+
+  suite('Surrounding a partially contained Node.', function() {
+    test('Surrounding a partially contained element throws a DOMException', function() {
+      const partialElement = document.createElement('div');
+      partialElement.textContent = 'foo';
+      const partialChild = document.createElement('div');
+      partialChild.textContent = 'bar';
+      partialElement.appendChild(partialChild);
+
+      const endNode = document.createElement('span');
+      endNode.textContent = 'baz';
+
+      const parent = document.createElement('div');
+      parent.appendChild(partialElement);
+      parent.appendChild(endNode);
+
+      const range = document.createRange();
+      range.selectNode(partialChild);
+      range.setEndAfter(endNode);
+      assert.throws(function(){
+        range.surroundContents(document.createElement('span'));
+      }, /DOMException|InvalidStateError/);
+    });
+
+    test('Surrounding a partially contained text node is ok', function() {
+      const partialElement = document.createElement('div');
+      partialElement.textContent = 'foo';
+      const partialChild = document.createElement('div');
+      partialChild.textContent = 'bar';
+      partialElement.appendChild(partialChild);
+
+      const range = document.createRange();
+      range.setStart(partialElement.firstChild, 1);
+      range.setEndAfter(partialChild);
+      range.surroundContents(document.createElement('span'));
+      
+      assert.equal(partialElement.textContent, 'foobar');
+      assert.equal(partialElement.firstElementChild.textContent, 'oobar');
+    });
+  });
+
+  test('Surrounding with DocumentFragment throws a DOMException.', function() {
+    const element = document.createElement('div');
+    const parent = document.createElement('div');
+    parent.appendChild(element);
+    const range = document.createRange();
+      range.selectNode(element);
+      assert.throws(function(){
+        range.surroundContents(document.createDocumentFragment());
+      }, /DOMException|InvalidNodeTypeError/);
+    });
+
+  test('Surrounding replaces children of new parent.', function() {
+    const element = document.createElement('div');
+    element.textContent = 'friday';
+    const parent = document.createElement('div');
+    parent.appendChild(element);
+
+    const newParent = document.createElement('div');
+    newParent.textContent = 'hello';
+
+    const range = document.createRange();
+    range.selectNode(element);
+    range.surroundContents(newParent);
+
+    assert.equal(newParent.textContent, 'friday');
+  });
+
+  test('Surrounding updates the range.', function() {
+    const element = document.createElement('div');
+    element.textContent = 'friday';
+    const parent = document.createElement('div');
+    parent.appendChild(element);
+
+    const newParent = document.createElement('div');
+
+    const range = document.createRange();
+    range.selectNode(element);
+    range.surroundContents(newParent);
+
+    const parentRange = document.createRange();
+    parentRange.selectNode(newParent);
+
+    assert.equal(range.startContainer, parentRange.startContainer);
+    assert.equal(range.startOffset, parentRange.startOffset);
+    assert.equal(range.endContainer, parentRange.endContainer);
+    assert.equal(range.endOffset, parentRange.endOffset);
+  });
+
+</script>
+</head>
+<body></body>
+</html>

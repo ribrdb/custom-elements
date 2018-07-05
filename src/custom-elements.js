@@ -16,6 +16,7 @@ import PatchDocument from './Patch/Document.js';
 import PatchDocumentFragment from './Patch/DocumentFragment.js';
 import PatchNode from './Patch/Node.js';
 import PatchElement from './Patch/Element.js';
+import PatchRange from './Patch/Range.js';
 
 const priorCustomElements = window['customElements'];
 
@@ -31,6 +32,7 @@ if (!priorCustomElements ||
   PatchDocumentFragment(internals);
   PatchNode(internals);
   PatchElement(internals);
+  PatchRange(internals);
 
   // The main document is always associated with the registry.
   document.__CE_hasRegistry = true;
